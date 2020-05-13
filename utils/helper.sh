@@ -430,12 +430,12 @@ function props_to_env() {
 
 PRETTY_PASS="\e[32m✔ \033\e[0m"
 function print_pass() {
-  printf "${PRETTY_PASS}${1}\n"
+  printf "${PRETTY_PASS}%s\n" "${1}"
 }
 
 PRETTY_ERROR="\e[31m✘ \033\e[0m"
 function print_error() {
-  printf "${PRETTY_ERROR}${1}"
+  printf "${PRETTY_ERROR}%s\n" "${1}"
 }
 
 function exit_with_error()
