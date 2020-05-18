@@ -64,17 +64,7 @@ $CMD \
   && print_code_pass -c "$CMD" \
   || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3)) 
 
-CMD="ccloud kafka topic create pageviews_regions"
-$CMD  \
-  && print_code_pass -c "$CMD" \
-  || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3))
-
 CMD="ccloud kafka topic create users"
-$CMD \
-  && print_code_pass -c "$CMD" \
-  || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3))
-
-CMD="ccloud kafka topic create accomplished_female_readers"
 $CMD \
   && print_code_pass -c "$CMD" \
   || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3))
@@ -82,9 +72,8 @@ $CMD \
 print_pass "Pre-created topics"
  
 printf "\nStarting local connect cluster in Docker to generate simulated data\n"
-CMD="docker-compose up -d connect"
-$CMD \
-  && print_code_pass -c "$CMD" \
+docker-compose up -d connect > /dev/null 2>&1 \
+  && print_code_pass -c "docker-compose up -d connect" \
   || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -2))
 
 # Verify Kafka Connect worker has started
@@ -111,50 +100,35 @@ ksqlAppId=$(eval $CMD) \
   || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3))
 
 printf "\nConfiguring ksqlDB ACLs\n"
-CMD="ccloud ksql app configure-acls $ksqlAppId pageviews users pageviews_regions accomplished_female_readers PAGEVIEWS_FEMALE pageviews_female_like_89"
+CMD="ccloud ksql app configure-acls $ksqlAppId pageviews users PAGEVIEWS_FEMALE pageviews_female_like_89"
 $CMD \
   && print_code_pass -c "$CMD" \
   || exit_with_error -c $? -n "$NAME" -m "$CMD" -l $(($LINENO -3))
 
 sleep 60
-printf "\nSubmitting KSQL queries\n\n"
+printf "\nSubmitting KSQL queries via curl to the ksqlDB REST endpoint\n\n"
 
 while read ksqlCmd; do # from docker-cloud-statements.sql
-
-echo -e "\n$ksqlCmd\n"
-  response=$(curl -X POST $KSQL_ENDPOINT/ksql \
-       -H "Content-Type: application/vnd.ksql.v1+json; charset=utf-8" \
-       -u $KSQL_BASIC_AUTH_USER_INFO \
-       --silent \
-       -d @<(cat <<EOF
-{
-  "ksql": "$ksqlCmd",
-  "streamsProperties": {$properties}
-}
+	response=$(curl -X POST $KSQL_ENDPOINT/ksql \
+	       -H "Content-Type: application/vnd.ksql.v1+json; charset=utf-8" \
+	       -u $KSQL_BASIC_AUTH_USER_INFO \
+	       --silent \
+	       -d @<(cat <<EOF
+	{
+	  "ksql": "$ksqlCmd",
+	  "streamsProperties": {$properties}
+	}
 EOF
-))
-  echo $response
-  if [[ ! "$response" =~ "SUCCESS" ]]; then
-    echo -e "\nWARN: KSQL command '$ksqlCmd' did not include \"SUCCESS\" in the response. Please troubleshoot."
-  fi
-
-#CMD="curl -s -w \"\n%{http_code}\" -X POST $KSQL_ENDPOINT/ksql -H \"Content-Type: application/vnd.ksql.v1+json; charset=utf-8\" -u $KSQL_BASIC_AUTH_USER_INFO -d @"<
-#   response=$(eval $CMD) \
-#     && print_code_pass -c "$CMD" \
-#     || exit_with_error -c $? -n "$NAME" -m "curl command failure, reference libcurl errors" -l $((LINENO -2));
-# 
-#   BODY="{\\\"ksql\\\":\\\"$ksqlCmd\\\",\\\"streamsProperties\\\":{\\\"ksql.streams.auto.offset.reset\\\":\\\"earliest\\\",\\\"ksql.streams.cache.max.bytes.buffering\\\":\\\"0\\\"}}"
-#   printf "\ncurl command succeeed\nhere is the submitted KSQL command and REST API response:\n\n"
-#   echo "$response" | {
-#     read body
-#     read code
-#     if [[ "$code" -gt 299 ]];
-#       then print_code_error -c "$ksqlCmd" -m "$(echo "$body" | jq .message)"
-#       else print_code_pass  -c "$ksqlCmd" -m "$(echo "$body" | jq -r .[].commandStatus.message)"
-#     fi
-#   }
-#   printf "\n"
-#   sleep 5
+	))
+	echo "$response" | {
+	  read body
+	  read code
+	  if [[ "$code" -gt 299 ]];
+	    then print_code_error -c "$ksqlCmd" -m "$(echo "$body" | jq .message)"
+	    else print_code_pass  -c "$ksqlCmd" -m "$(echo "$body" | jq -r .[].commandStatus.message)"
+	  fi
+	}
+sleep 3;
 done < docker-cloud-statements.sql
 echo "-----------------------------------------------------------"
 
