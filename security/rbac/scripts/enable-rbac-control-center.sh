@@ -8,18 +8,18 @@
 ################################################################################
 
 # Source library
-. ../../../utils/helper.sh
-. ./rbac_lib.sh
+source ../../../utils/helper.sh
+source ./rbac_lib.sh
 
 check_env || exit 1
-check_cli_v2 || exit 1
+validate_version_confluent_cli_v2 || exit 1
 check_jq || exit 1
 
 ##################################################
 # Initialize
 ##################################################
 
-. ../config/local-demo.env
+source ../config/local-demo.env
 ORIGINAL_CONFIGS_DIR=/tmp/original_configs
 DELTA_CONFIGS_DIR=../delta_configs
 FILENAME=control-center-dev.properties
@@ -40,7 +40,7 @@ echo "confluent iam rolebinding create --principal User:$USER_ADMIN_C3 --role Sy
 confluent iam rolebinding create --principal User:$USER_ADMIN_C3 --role SystemAdmin --kafka-cluster-id $KAFKA_CLUSTER_ID
 
 echo -e "\n# Bring up Control Center"
-confluent local start control-center
+confluent local services control-center start
 
 echo "Sleeping 10 seconds"
 sleep 10

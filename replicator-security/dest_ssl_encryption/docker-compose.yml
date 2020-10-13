@@ -39,7 +39,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: srcKafka1
     container_name: srcKafka1
-    cpus: 0.3
     depends_on:
       - srcZookeeper
     ports:
@@ -52,6 +51,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: "true"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
@@ -59,7 +59,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: destKafka1
     container_name: destKafka1
-    cpus: 0.3
     depends_on:
       - destZookeeper
     ports:
@@ -74,6 +73,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: "true"
       KAFKA_SSL_KEYSTORE_FILENAME: kafka.destKafka1.keystore.jks
       KAFKA_SSL_KEYSTORE_CREDENTIALS: destKafka1_keystore_creds
@@ -84,7 +84,6 @@ services:
   connect:
     image: ${REPOSITORY}/cp-server-connect:${CONFLUENT_DOCKER_TAG}
     container_name: connect
-    cpus: 0.2
     restart: always
     ports:
       - "8083:8083"
@@ -136,7 +135,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: srcKafkaClient
     container_name: srcKafkaClient
-    cpus: 0.1
     depends_on:
       - srcKafka1
     volumes:
@@ -145,7 +143,7 @@ services:
     command: "bash -c -a 'echo Waiting for Kafka to be ready... && \
                        /etc/confluent/docker/configure && \
                        cub kafka-ready -b srcKafka1:10091 1 60 --config /etc/kafka/kafka.properties && \
-                       kafka-topics --zookeeper srcZookeeper:2181 --topic testTopic --create --replication-factor 1 --partitions 6 && \
+                       kafka-topics --bootstrap-server srcKafka1:10091 --topic testTopic --create --replication-factor 1 --partitions 6 && \
                        kafka-console-producer --broker-list srcKafka1:10091 --topic testTopic < /etc/kafka/testData/testData.txt'"
     environment:
       # The following settings are listed here only to satisfy the image's requirements.
@@ -157,7 +155,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: destKafkaClient
     container_name: destKafkaClient
-    cpus: 0.1
     depends_on:
       - destKafka1
       - connect

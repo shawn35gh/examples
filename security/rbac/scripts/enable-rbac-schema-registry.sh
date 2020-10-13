@@ -8,18 +8,18 @@
 ################################################################################
 
 # Source library
-. ../../../utils/helper.sh
-. ./rbac_lib.sh
+source ../../../utils/helper.sh
+source ./rbac_lib.sh
 
 check_env || exit 1
-check_cli_v2 || exit 1
+validate_version_confluent_cli_v2 || exit 1
 check_jq || exit 1
 
 ##################################################
 # Initialize
 ##################################################
 
-. ../config/local-demo.env
+source ../config/local-demo.env
 ORIGINAL_CONFIGS_DIR=/tmp/original_configs
 DELTA_CONFIGS_DIR=../delta_configs
 FILENAME=schema-registry.properties
@@ -32,6 +32,8 @@ login_mds $MDS
 # Administrative Functions
 # - Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the ResourceOwner role to Topic:_schemas
 # - Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the ResourceOwner role to Group:schema-registry-demo
+# - Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the DeveloperRead role to Topic:$LICENSE_TOPIC
+# - Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the DeveloperWrite role to Topic:$LICENSE_TOPIC
 # - Start Schema Registry
 # - Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the SecurityAdmin role to the Schema Registry cluster
 # - List the role bindings for User:$USER_ADMIN_SCHEMA_REGISTRY
@@ -48,8 +50,14 @@ echo -e "\n# Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the ResourceOwner 
 echo "confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role ResourceOwner --resource Group:schema-registry-demo --kafka-cluster-id $KAFKA_CLUSTER_ID"
 confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role ResourceOwner --resource Group:schema-registry-demo --kafka-cluster-id $KAFKA_CLUSTER_ID
 
+echo -e "\n# Grant principal User:$USER_ADMIN_SCHEMA_REGISTRY the DeveloperRead and DeveloperWrite roles to Topic:$LICENSE_TOPIC"
+echo "confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role DeveloperRead --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID"
+echo "confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role DeveloperWrite --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID"
+confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role DeveloperRead --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID
+confluent iam rolebinding create --principal User:$USER_ADMIN_SCHEMA_REGISTRY --role DeveloperWrite --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID
+
 echo -e "\n# Bring up Schema Registry"
-confluent local start schema-registry
+confluent local services schema-registry start
 
 echo -e "Sleeping 10 seconds before getting the Schema Registry cluster ID"
 sleep 10
@@ -81,10 +89,10 @@ SUBJECT="new-topic-value"
 echo -e "\n# Register new schema for subject $SUBJECT (should fail)"
 echo "curl --silent -u $USER_CLIENT_A:${USER_CLIENT_A}1 -X POST -H \"Content-Type: application/vnd.schemaregistry.v1+json\" --data '"'{"schema": "{\"type\":\"record\",\"name\":\"Payment\",\"namespace\":\"io.confluent.examples.clients.basicavro\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"amount\",\"type\":\"double\"},{\"name\":\"region\",\"type\":\"string\"}]}"}'"' http://localhost:8081/subjects/$SUBJECT/versions"
 OUTPUT=$(curl --silent -u $USER_CLIENT_A:${USER_CLIENT_A}1 -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema": "{\"type\":\"record\",\"name\":\"Payment\",\"namespace\":\"io.confluent.examples.clients.basicavro\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"amount\",\"type\":\"double\"},{\"name\":\"region\",\"type\":\"string\"}]}"}' http://localhost:8081/subjects/$SUBJECT/versions)
-if [[ $OUTPUT =~ "User cannot access the resource" ]]; then
-  echo "PASS: Schema registration failed due to 'User cannot access the resource'"
+if [[ $OUTPUT =~ "User is denied operation" ]]; then
+  echo "PASS: Schema registration failed due to 'User is denied operation'"
 else
-  echo "FAIL: Something went wrong, check output"
+  echo -e "FAIL: Something went wrong, check output:\n$OUTPUT"
 fi
 
 echo -e "\n# Grant principal User:$USER_CLIENT_A the ResourceOwner role to Subject:$SUBJECT"

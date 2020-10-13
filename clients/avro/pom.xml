@@ -7,7 +7,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
       <groupId>io.confluent</groupId>
       <artifactId>rest-utils-parent</artifactId>
-      <version>5.5.0</version>
+      <version>6.0.0</version>
   </parent>
 
   <artifactId>java-client-avro-examples</artifactId>
@@ -31,6 +31,8 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.suppressions.location>checkstyle/suppressions.xml</checkstyle.suppressions.location>
+    <schemaRegistryUrl>http://localhost:8081</schemaRegistryUrl>
+    <schemaRegistryBasicAuthUserInfo></schemaRegistryBasicAuthUserInfo>
   </properties>
 
   <repositories>
@@ -73,7 +75,12 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <dependency>
        <groupId>org.slf4j</groupId>
        <artifactId>slf4j-log4j12</artifactId>
-     </dependency>
+   </dependency>
+   <!-- Use a repackaged version of log4j with security patches. Default log4j v1.2 is a transitive dependency of slf4j-log4j12, but it is excluded in common/pom.xml -->
+    <dependency>
+        <groupId>io.confluent</groupId>
+        <artifactId>confluent-log4j</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -116,8 +123,9 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
           <version>${confluent.version}</version>
           <configuration>
               <schemaRegistryUrls>
-                  <param>http://localhost:8081</param>
+                  <param>${schemaRegistryUrl}</param>
               </schemaRegistryUrls>
+              <userInfoConfig>${schemaRegistryBasicAuthUserInfo}</userInfoConfig>
               <subjects>
                   <transactions-value>src/main/resources/avro/io/confluent/examples/clients/basicavro/Payment2a.avsc</transactions-value>
               </subjects>

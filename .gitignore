@@ -21,3 +21,6 @@ log.*
 *.srl
 *_creds
 **/stack-configs/
+**/eventlogs.sql
+**/.DS_Store
+ccloud/*.zip

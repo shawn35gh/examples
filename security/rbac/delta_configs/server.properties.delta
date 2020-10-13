@@ -4,13 +4,10 @@
 super.users=User:ANONYMOUS;User:mds
 
 # MDS Server Settings
-# Enable all authenticated users to connect to the HTTP service.
-confluent.metadata.server.authentication.roles=**
 confluent.metadata.topic.replication.factor=1
 
 # MDS Token Service Settings
 confluent.metadata.server.token.key.path=/tmp/tokenKeypair.pem
-confluent.metadata.server.public.key.path=/tmp/tokenPublicKey.pem
 
 # Configure the RBAC Metadata Service authorizer
 authorizer.class.name=io.confluent.kafka.security.authorizer.ConfluentServerAuthorizer
@@ -44,3 +41,9 @@ listener.name.token.oauthbearer.sasl.jaas.config= \
 listener.name.token.oauthbearer.sasl.server.callback.handler.class=io.confluent.kafka.server.plugins.auth.token.TokenBearerValidatorCallbackHandler
 # Set SASL callback handler for handling tokens on login. This is essentially a noop if not used for inter-broker communication.
 listener.name.token.oauthbearer.sasl.login.callback.handler.class=io.confluent.kafka.server.plugins.auth.token.TokenBearerServerLoginCallbackHandler
+
+# Settings for Self-Balancing Clusters
+confluent.balancer.topic.replication.factor=1
+
+# Settings for Audit Logging
+confluent.security.event.logger.exporter.kafka.topic.replicas=1

@@ -8,18 +8,18 @@
 ################################################################################
 
 # Source library
-. ../../../utils/helper.sh
-. ./rbac_lib.sh
+source ../../../utils/helper.sh
+source ./rbac_lib.sh
 
 check_env || exit 1
-check_cli_v2 || exit 1
+validate_version_confluent_cli_v2 || exit 1
 check_jq || exit 1
 
 ##################################################
 # Initialize
 ##################################################
 
-. ../config/local-demo.env
+source ../config/local-demo.env
 ORIGINAL_CONFIGS_DIR=/tmp/original_configs
 DELTA_CONFIGS_DIR=../delta_configs
 FILENAME=kafka-rest.properties
@@ -30,6 +30,8 @@ login_mds $MDS
 
 ##################################################
 # Administrative Functions
+# - Grant principal User:$USER_CLIENT_RP the DeveloperRead role to Topic:$LICENSE_TOPIC
+# - Grant principal User:$USER_CLIENT_RP the DeveloperWrite role to Topic:$LICENSE_TOPIC
 # - Start REST Proxy
 # - No additional role bindings are required because REST Proxy just does impersonation
 ##################################################
@@ -37,7 +39,13 @@ login_mds $MDS
 # Get the Kafka cluster id
 get_cluster_id_kafka
 
-confluent local start kafka-rest
+echo -e "\n# Grant principal User:$USER_CLIENT_RP the DeveloperRead and DeveloperWrite roles to Topic:$LICENSE_TOPIC"
+echo "confluent iam rolebinding create --principal User:$USER_CLIENT_RP --role DeveloperRead --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID"
+echo "confluent iam rolebinding create --principal User:$USER_CLIENT_RP --role DeveloperWrite --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID"
+confluent iam rolebinding create --principal User:$USER_CLIENT_RP --role DeveloperRead --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID
+confluent iam rolebinding create --principal User:$USER_CLIENT_RP --role DeveloperWrite --resource Topic:$LICENSE_TOPIC --kafka-cluster-id $KAFKA_CLUSTER_ID
+
+confluent local services kafka-rest start
 
 ##################################################
 # REST Proxy client functions
@@ -90,7 +98,7 @@ echo $OUTPUT
 if [[ $OUTPUT =~ "Not authorized to access group" ]]; then
   echo "PASS: Consuming messages from topic $TOPIC3 failed due to Not authorized to access group (expected because User:$USER_CLIENT_RP is not allowed access to the consumer group)"
 else
-  echo "FAIL: Something went wrong, check output"
+  echo -e "FAIL: Something went wrong, check output:\n$OUTPUT"
 fi
 
 echo -e "\n# Grant the principal User:$USER_CLIENT_RP to the DeveloperRead role for Group:$CONSUMER_GROUP"

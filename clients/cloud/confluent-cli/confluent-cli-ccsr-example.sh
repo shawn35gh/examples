@@ -1,16 +1,18 @@
 #!/bin/bash
 
 CONFIG_FILE=$HOME/.confluent/java.config
+CONFIG_FILE=/Users/yeva/git/examples/ccloud/stack-configs/java-service-account-111108.config
 
 source ../../../utils/helper.sh
+source ../../../utils/ccloud_library.sh
 
 check_env || exit
-check_cli_v2 || exit
-check_ccloud_config $CONFIG_FILE || exit
+validate_version_confluent_cli_v2 || exit
+ccloud::validate_ccloud_config $CONFIG_FILE || exit
 
 set -eu
 
-../../../ccloud/ccloud-generate-cp-configs.sh
+../../../ccloud/ccloud-generate-cp-configs.sh $CONFIG_FILE
 source delta_configs/env.delta
 
 # Set topic name
@@ -24,7 +26,7 @@ kafka-topics --bootstrap-server `grep "^\s*bootstrap.server" $CONFIG_FILE | tail
 echo -e "\n# Produce messages to $topic_name"
 num_messages=10
 (for i in `seq 1 $num_messages`; do echo "{\"count\":${i}}" ; done) | \
-   confluent local produce $topic_name -- \
+   confluent local services kafka produce $topic_name \
                                        --cloud \
                                        --config $CONFIG_FILE \
                                        --value-format avro \
@@ -35,7 +37,7 @@ num_messages=10
 
 # Consume messages
 echo -e "\n# Consume messages from $topic_name"
-confluent local consume $topic_name -- \
+confluent local services kafka consume $topic_name \
                                     --cloud \
                                     --config $CONFIG_FILE \
                                     --value-format avro \

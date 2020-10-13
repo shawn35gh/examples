@@ -8,23 +8,23 @@
 ################################################################################
 
 # Source library
-. ../../../utils/helper.sh
-. ./rbac_lib.sh
+source ../../../utils/helper.sh
+source ./rbac_lib.sh
 
 check_env || exit 1
-check_cli_v2 || exit 1
+validate_version_confluent_cli_v2 || exit 1
 check_jq || exit 1
 
 ##################################################
 # Initialize
 ##################################################
 
-. ../config/local-demo.env
+source ../config/local-demo.env
 ORIGINAL_CONFIGS_DIR=/tmp/original_configs
 DELTA_CONFIGS_DIR=../delta_configs
 FILENAME=server.properties
 create_temp_configs $CONFLUENT_HOME/etc/kafka/$FILENAME $ORIGINAL_CONFIGS_DIR/$FILENAME $DELTA_CONFIGS_DIR/${FILENAME}.delta
-confluent local start kafka
+confluent local services kafka start
 
 echo -e "Sleeping 10 seconds before login"
 sleep 10
@@ -58,11 +58,11 @@ confluent iam rolebinding list --principal User:$USER_ADMIN_SYSTEM --kafka-clust
 ##################################################
 echo -e "\n# Try to create topic $TOPIC1, before authorization (should fail)"
 echo "kafka-topics --bootstrap-server $BOOTSTRAP_SERVER --create --topic $TOPIC1 --replication-factor 1 --partitions 3 --command-config $DELTA_CONFIGS_DIR/client.properties.delta"
-OUTPUT=$(kafka-topics --bootstrap-server $BOOTSTRAP_SERVER --create --topic $TOPIC1 --replication-factor 1 --partitions 3 --command-config $DELTA_CONFIGS_DIR/client.properties.delta)
+OUTPUT=$(kafka-topics --bootstrap-server $BOOTSTRAP_SERVER --create --topic $TOPIC1 --replication-factor 1 --partitions 3 --command-config $DELTA_CONFIGS_DIR/client.properties.delta 2>&1)
 if [[ $OUTPUT =~ "org.apache.kafka.common.errors.TopicAuthorizationException" ]]; then
   echo "PASS: Topic creation failed due to org.apache.kafka.common.errors.TopicAuthorizationException (expected because User:$USER_CLIENT_A is not allowed to create topics)"
 else
-  echo "FAIL: Something went wrong, check output"
+  echo -e "FAIL: Something went wrong, check output:\n$OUTPUT"
 fi
 
 echo -e "\n# Grant principal User:$USER_CLIENT_A the ResourceOwner role to Topic:$TOPIC1"
@@ -96,16 +96,16 @@ done
 echo $MESSAGE
 echo -e "\n# Produce $NUM_MESSAGES messages to topic $TOPIC1"
 set -x
-echo -e "${MESSAGE}" | confluent local produce $TOPIC1 -- --broker-list $BOOTSTRAP_SERVER --producer.config $DELTA_CONFIGS_DIR/client.properties.delta --property parse.key=true --property key.separator=,
+echo -e "${MESSAGE}" | confluent local services kafka produce $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER --producer.config $DELTA_CONFIGS_DIR/client.properties.delta --property parse.key=true --property key.separator=,
 set +x
 
 echo -e "\n# Consume from topic $TOPIC1 from RBAC endpoint (should fail)"
-echo "confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
-OUTPUT=$(confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES 2>&1)
+echo "confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
+OUTPUT=$(confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES 2>&1)
 if [[ $OUTPUT =~ "org.apache.kafka.common.errors.GroupAuthorizationException" ]]; then
   echo "PASS: Consume failed due to org.apache.kafka.common.errors.GroupAuthorizationException (expected because User:$USER_CLIENT_A is not allowed access to consumer groups)"
 else
-  echo "FAIL: Something went wrong, check output"
+  echo -e "FAIL: Something went wrong, check output:\n$OUTPUT"
 fi
 
 echo -e "#\n Grant principal User:$USER_CLIENT_A the DeveloperRead role to Group:console-consumer- prefix"
@@ -113,12 +113,12 @@ echo "confluent iam rolebinding create --principal User:$USER_CLIENT_A --role De
 confluent iam rolebinding create --principal User:$USER_CLIENT_A --role DeveloperRead --resource Group:console-consumer- --prefix --kafka-cluster-id $KAFKA_CLUSTER_ID
 
 echo -e "\n# Consume from topic $TOPIC1 from RBAC endpoint (should pass)"
-echo "confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
-confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES
+echo "confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
+confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER --consumer.config $DELTA_CONFIGS_DIR/client.properties.delta --from-beginning --property print.key=true --max-messages $NUM_MESSAGES
 
 echo -e "\n# Consume from topic $TOPIC1 from PLAINTEXT endpoint"
-echo "confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER_PLAINTEXT --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
-confluent local consume $TOPIC1 -- --bootstrap-server $BOOTSTRAP_SERVER_PLAINTEXT --from-beginning --property print.key=true --max-messages $NUM_MESSAGES
+echo "confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER_PLAINTEXT --from-beginning --property print.key=true --max-messages $NUM_MESSAGES"
+confluent local services kafka consume $TOPIC1 --bootstrap-server $BOOTSTRAP_SERVER_PLAINTEXT --from-beginning --property print.key=true --max-messages $NUM_MESSAGES
 
 
 ##################################################

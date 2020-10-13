@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Sleeping 150 seconds until ksqlDB server starts and topics have data"
-sleep 150
+echo "Sleeping 300 seconds until ksqlDB server starts and topics have data"
+sleep 300
 
 # Create KSQL queries
 ksql http://ksqldb-server:8088 <<EOF

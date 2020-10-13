@@ -10,15 +10,16 @@
 ################################################################################
 
 # Source library
-. ../../utils/helper.sh
+source ../../utils/helper.sh
+source ../../utils/ccloud_library.sh
 
-check_ccloud_version 1.0.0 || exit 1
+ccloud::validate_version_ccloud_cli 1.7.0 || exit 1
+ccloud::validate_logged_in_ccloud_cli || exit 1
 check_timeout || exit 1
 check_mvn || exit 1
 check_expect || exit 1
 check_jq || exit 1
 check_docker || exit 1
-check_ccloud_logged_in || exit 1
 
 ##################################################
 # Create a new environment and specify it as the default
@@ -29,7 +30,7 @@ echo -e "\n# Create a new Confluent Cloud environment $ENVIRONMENT_NAME"
 echo "ccloud environment create $ENVIRONMENT_NAME -o json"
 OUTPUT=$(ccloud environment create $ENVIRONMENT_NAME -o json)
 if [[ $? != 0 ]]; then
-  echo "ERROR: Failed to create environment $ENVIRONMENT_NAME. Please troubleshoot (maybe run ./clean.sh) and run again"
+  echo "ERROR: Failed to create environment $ENVIRONMENT_NAME. Please troubleshoot (maybe run ./cleanup.sh) and run again"
   exit 1
 fi
 echo "$OUTPUT" | jq .
@@ -87,7 +88,7 @@ ccloud api-key use $API_KEY --resource $CLUSTER
 MAX_WAIT=720
 echo
 echo "Waiting for Confluent Cloud cluster to be ready and for credentials to propagate"
-retry $MAX_WAIT check_ccloud_cluster_ready || exit 1
+retry $MAX_WAIT ccloud::validate_ccloud_cluster_ready || exit 1
 # Estimating another 60s wait still sometimes required
 sleep 60
 printf "\n\n"
@@ -148,7 +149,6 @@ API_SECRET_SA=$(echo "$OUTPUT" | jq -r ".secret")
 CLIENT_CONFIG="/tmp/client.config"
 echo -e "\n# Create a local configuration file $CLIENT_CONFIG with Confluent Cloud connection information with the newly created API key and secret"
 cat <<EOF > $CLIENT_CONFIG
-ssl.endpoint.identification.algorithm=https
 sasl.mechanism=PLAIN
 security.protocol=SASL_SSL
 bootstrap.servers=${BOOTSTRAP_SERVERS}
@@ -299,7 +299,7 @@ source delta_configs/env.delta
 echo -e "\n# Run a Connect container with the kafka-connect-datagen plugin"
 echo "docker-compose up -d"
 docker-compose up -d
-MAX_WAIT=60
+MAX_WAIT=180
 echo "Waiting up to $MAX_WAIT seconds for Docker container for connect to be up"
 retry $MAX_WAIT check_connect_up connect-cloud || exit 1
 sleep 5

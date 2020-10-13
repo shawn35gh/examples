@@ -3,9 +3,8 @@
 ################################################################
 # Source Confluent Platform versions
 ################################################################
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-. "$DIR/config.env"
-. "$DIR/helper_cloud.sh"
+DIR_HELPER="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+source "${DIR_HELPER}/config.env"
 
 
 ################################################################
@@ -31,6 +30,46 @@ function check_env() {
   return 0
 }
 
+function validate_version_confluent_cli_v2() {
+
+  if [[ -z $(confluent version | grep "Go") ]]; then
+    echo "This example requires the new Confluent CLI. Please update your version and try again."
+    exit 1
+  fi
+
+  return 0
+}
+
+function get_version_confluent_cli() {
+  confluent version | grep "^Version:" | cut -d':' -f2 | cut -d'v' -f2
+}
+
+function version_gt() {
+  test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
+}
+
+function validate_version_confluent_cli_for_cp() {
+
+  validate_version_confluent_cli_v2 || exit 1
+
+  VER_MIN="1.11.0"
+  VER_MAX="1.16.3"
+  CLI_VER=$(get_version_confluent_cli)
+
+  if version_gt $VER_MIN $CLI_VER || version_gt $CLI_VER $VER_MAX ; then
+    echo "Confluent CLI version ${CLI_VER} is not compatibile with the currently running Confluent Platform version ${CONFLUENT}. Set Confluent CLI version appropriately, see https://docs.confluent.io/current/installation/versions-interoperability.html#confluent-cli for more information."
+    exit 1
+  fi
+}
+
+function check_sqlite3() {
+  if [[ $(type sqlite3 2>&1) =~ "not found" ]]; then
+    echo "'sqlite3' is not found. Install sqlite3 and try again."
+    return 1
+  fi
+
+  return 0
+}
 function check_python() {
   if [[ $(type python 2>&1) =~ "not found" ]]; then
     echo "'python' is not found. Install python and try again."
@@ -64,7 +103,7 @@ function check_timeout() {
 
 function check_docker() {
   if ! docker ps -q &>/dev/null; then
-    echo "This demo requires Docker but it doesn't appear to be running.  Please start Docker and try again."
+    echo "This example requires Docker but it doesn't appear to be running.  Please start Docker and try again."
     exit 1
   fi
 
@@ -101,7 +140,7 @@ function check_running_cp() {
 
   expected_version=$1
 
-  actual_version=$( confluent local version 2>/dev/null | awk -F':' '{print $2;}' | awk '$1 > 0 { print $1}' )
+  actual_version=$( confluent local version 2>&1 | awk -F':' '{print $2;}' | awk '$1 > 0 { print $1}' )
   if [[ $expected_version != $actual_version ]]; then
     printf "\nThis script expects Confluent Platform version $expected_version but the running version is $actual_version.\nTo proceed please either: change the examples repo branch to $actual_version or update the running Confluent Platform to version $expected_version.\n"
     exit 1
@@ -113,7 +152,7 @@ function check_running_cp() {
 function check_cp() {
   require_cp_or_exit
 
-  type=$( confluent local version 2>/dev/null | tail -1 | awk -F: '{print $1;}' | tr '[:lower:]' '[:upper:]')
+  type=$( confluent local version 2>&1 | tail -1 | awk -F: '{print $1;}' | tr '[:lower:]' '[:upper:]')
   case $type in
     *PLATFORM*)
       return 0 ;; 
@@ -215,7 +254,7 @@ function check_mysql() {
     echo "'mysql' is not found. Install MySQL and try again"
     exit 1
   elif [[ $(echo "exit" | mysql demo -uroot 2>&1) =~ "Access denied" ]]; then
-    echo "This demo expects MySQL user root password is null. Either reset the MySQL user password or modify the script."
+    echo "This example expects MySQL user root password is null. Either reset the MySQL user password or modify the script."
     exit 1
   elif [[ $(echo "show variables;" | mysql -uroot | grep "log_bin\t" 2>&1) =~ "OFF" ]]; then
     echo "The Debezium connector expects MySQL binary logging is enabled. Assuming you installed MySQL on mac with homebrew, modify `/usr/local/etc/my.cnf` and then `brew services restart mysql`"
@@ -224,7 +263,7 @@ function check_mysql() {
 
   actual_version=$(mysql -V | awk '{print $5;}' | rev | cut -c 2- | rev)
   if [[ $expected_version != $actual_version ]]; then
-    echo -e "\nThis demo expects MySQL version $expected_version but the running version is $actual_version. Please run the correct version of MySQL to proceed, or comment out the line 'check_mysql' in the start script and run at your own risk.\n"
+    echo -e "\nThis example expects MySQL version $expected_version but the running version is $actual_version. Please run the correct version of MySQL to proceed, or comment out the line 'check_mysql' in the start script and run at your own risk.\n"
     exit 1
   fi
 
@@ -258,30 +297,11 @@ function prep_sqltable_locations() {
   return 0
 }
 
-function prep_sqltable_customers() {
-  TABLE="customers"
-  TABLE_PATH=/usr/local/lib/table.$TABLE
-  cp ../utils/table.$TABLE $TABLE_PATH
-
-  DB=/usr/local/lib/microservices.db
-  echo "DROP TABLE IF EXISTS $TABLE;" | sqlite3 $DB
-  echo "CREATE TABLE $TABLE(id INTEGER KEY NOT NULL, firstName VARCHAR(255), lastName VARCHAR(255), email VARCHAR(255), address VARCHAR(255), level VARCHAR(255));" | sqlite3 $DB
-  echo ".import $TABLE_PATH $TABLE" | sqlite3 $DB
-  #echo "pragma table_info($TABLE);" | sqlite3 $DB
-  #echo "select * from $TABLE;" | sqlite3 $DB
-
-  # View contents of file
-  #echo -e "\n======= Contents of $TABLE_PATH ======="
-  #cat $TABLE_PATH
-
-  return 0
-}
-
 function error_not_compatible_confluent_cli() {
   adoc_file=$1
 
   echo "******"
-  echo "This demo is currently runnable only with Docker and not Confluent CLI."
+  echo "This example is currently runnable only with Docker and not Confluent CLI."
   echo "To run with Docker, follow step-by-step instructions in $adoc_file"
   echo "To run with Confluent CLI on a local Confluent Platform install, this work is in progress and please check back soon!"
   echo "******"
@@ -292,7 +312,7 @@ function error_not_compatible_confluent_cli() {
 function get_and_compile_kafka_streams_examples() {
 
   [[ -d "kafka-streams-examples" ]] || git clone https://github.com/confluentinc/kafka-streams-examples.git
-  (cd kafka-streams-examples && git fetch && git checkout ${CONFLUENT_RELEASE_TAG_OR_BRANCH} && git pull && mvn package -DskipTests) || {
+  (cd kafka-streams-examples && git fetch && git checkout ${CONFLUENT_RELEASE_TAG_OR_BRANCH} && git pull && echo "Building kafka-streams-examples $CONFLUENT_RELEASE_TAG_OR_BRANCH" && mvn package -DskipTests) || {
     echo "ERROR: There seems to be a BUILD FAILURE error with confluentinc/kafka-streams-examples. Please troubleshoot and try again."
     exit 1
   }
@@ -300,7 +320,7 @@ function get_and_compile_kafka_streams_examples() {
 }
 
 function get_cluster_id_kafka () { 
-  KAFKA_CLUSTER_ID=$(zookeeper-shell localhost:2181 get /cluster/id 2> /dev/null | grep version | jq -r .id)
+  KAFKA_CLUSTER_ID=$(curl -s http://localhost:8090/v1/metadata/id | jq -r ".id")
   if [[ -z "$KAFKA_CLUSTER_ID" ]]; then
     echo "Failed to get Kafka cluster ID. Please troubleshoot and run again"
     exit 1
@@ -326,10 +346,10 @@ function get_cluster_id_connect () {
   return 0
 }
 
-function get_service_id_ksql () {
-  KSQL_SERVICE_ID=$(confluent cluster describe --url http://localhost:8088 | grep ksql-cluster | awk '{print $3;}')
-  if [[ -z "$KSQL_SERVICE_ID" ]]; then
-    echo "Failed to get KSQL service ID. Please troubleshoot and run again"
+function get_service_id_ksqldb () {
+  KSQLDB_SERVICE_ID=$(confluent cluster describe --url http://localhost:8088 | grep ksql-cluster | awk '{print $3;}')
+  if [[ -z "$KSQLDB_SERVICE_ID" ]]; then
+    echo "Failed to get ksqlDB service ID. Please troubleshoot and run again"
     exit 1
   fi
   return 0
@@ -367,6 +387,15 @@ check_connect_up_logFile() {
   return 0
 }
 
+host_check_ksqlDBserver_up()
+{
+  KSQLDB_CLUSTER_ID=$(curl -s http://localhost:8088/info | jq -r ".KsqlServerInfo.ksqlServiceId")
+  if [ "$KSQLDB_CLUSTER_ID" == "ksql-cluster" ]; then
+    return 0
+  fi
+  return 1
+}
+
 check_connect_up() {
   containerName=$1
 
@@ -381,6 +410,16 @@ check_control_center_up() {
   containerName=$1
 
   FOUND=$(docker-compose logs $containerName | grep "Started NetworkTrafficServerConnector")
+  if [ -z "$FOUND" ]; then
+    return 1
+  fi
+  return 0
+}
+
+check_rest_proxy_up() {
+  containerName=$1
+
+  FOUND=$(docker-compose logs $containerName | grep "Server started, listening for requests")
   if [ -z "$FOUND" ]; then
     return 1
   fi
@@ -407,18 +446,6 @@ check_connector_status_running() {
   return 0
 }
 
-check_confluent_local_service_ready() {
-  SERVICE=$1
-
-  STATUS=$(confluent local status | grep "$SERVICE is" | grep UP)
-  echo "STATUS: $STATUS"
-  if [[ "$STATUS" == "" ]]; then
-    return 1
-  fi
-
-  return 0
-}
-
 # Converts properties file of key/value pairs into prefixed environment variables for Docker
 # Naming convention: convert properties file into env vars as uppercase and replace '.' with '_'
 # Inverse of env_to_props: https://github.com/confluentinc/confluent-docker-utils/blob/master/confluent/docker_utils/dub.py
@@ -440,14 +467,48 @@ function props_to_env() {
   done
 }
 
-PRETTY_PASS="\e[32m✔ \033\e[0m"
+PRETTY_PASS="\e[32m✔ \e[0m"
 function print_pass() {
-  printf "${PRETTY_PASS}${1}\n"
+  printf "${PRETTY_PASS}%s\n" "${1}"
 }
-
-PRETTY_ERROR="\e[31m✘ \033\e[0m"
+PRETTY_ERROR="\e[31m✘ \e[0m"
 function print_error() {
-  printf "${PRETTY_ERROR}${1}\n"
+  printf "${PRETTY_ERROR}%s\n" "${1}"
+}
+PRETTY_CODE="\e[1;100;37m"
+function print_code() {
+	printf "${PRETTY_CODE}%s\e[0m\n" "${1}"
+}
+function print_process_start() {
+	printf "⌛ %s\n" "${1}"
+}
+function print_code_pass() {
+  local MESSAGE=""
+	local CODE=""
+  OPTIND=1
+  while getopts ":c:m:" opt; do
+    case ${opt} in
+			c ) CODE=${OPTARG};;
+      m ) MESSAGE=${OPTARG};;
+		esac
+	done
+  shift $((OPTIND-1))
+	printf "${PRETTY_PASS}${PRETTY_CODE}%s\e[0m\n" "${CODE}"
+	[[ -z "$MESSAGE" ]] || printf "\t$MESSAGE\n"			
+}
+function print_code_error() {
+  local MESSAGE=""
+	local CODE=""
+  OPTIND=1
+  while getopts ":c:m:" opt; do
+    case ${opt} in
+			c ) CODE=${OPTARG};;
+      m ) MESSAGE=${OPTARG};;
+		esac
+	done
+  shift $((OPTIND-1))
+	printf "${PRETTY_ERROR}${PRETTY_CODE}%s\e[0m\n" "${CODE}"
+	[[ -z "$MESSAGE" ]] || printf "\t$MESSAGE\n"			
 }
 
 function exit_with_error()
@@ -468,6 +529,13 @@ function exit_with_error()
     esac
   done
   shift $((OPTIND-1))
-  print_error "error ${CODE} occurred in ${NAME} at line $LINE\n\t${MESSAGE}\n"
+  print_error "error ${CODE} occurred in ${NAME} at line $LINE"
+	printf "\t${MESSAGE}\n"
   exit $CODE
+}
+
+function append_once() {
+  if ! grep -q ${1} ${2}; then
+    echo ${1} >> ${2}
+  fi
 }

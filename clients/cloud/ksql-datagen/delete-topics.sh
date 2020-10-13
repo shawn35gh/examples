@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Source library
-. ../../../utils/helper.sh
+source ../../../utils/helper.sh
+source ../../../utils/ccloud_library.sh
 
 source ./delta_configs/env.delta
 

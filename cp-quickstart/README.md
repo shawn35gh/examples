@@ -13,7 +13,7 @@ For additional examples that showcase streaming applications within an event str
 # Prerequisites
 
 * [Common demo prerequisites](https://github.com/confluentinc/examples#prerequisites)
-* [Confluent Platform 5.5](https://www.confluent.io/download/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.cp-quickstart)
+* [Confluent Platform 6.0](https://www.confluent.io/download/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.cp-quickstart)
 
 # Run demo
 
@@ -39,18 +39,21 @@ For additional examples that showcase streaming applications within an event str
 
 ## Confluent Cloud
 
-* Confluent Cloud similar quickstart to Confluent Platform: run the command below and then open your browser and navigate to Confluent Cloud at https://confluent.cloud .  If you choose to run it against your Confluent Cloud cluster, be aware that it creates resources and incurs charges.  It is for demo purposes only and should be used only for development.
+* This quickstart for Confluent Cloud is similar to those above for Confluent Platform, but leverages 100% Confluent Cloud services, including a [ksqlDB application](statements-cloud.sql) which builds streams and tables using Avro, Protobuf and JSON based formats. After logging into the `ccloud` CLI, run the command below and open your browser navigating to https://confluent.cloud. Note: the demo creates real cloud resources and incurs charges.
 
 ```bash
-./start-docker-cloud.sh
+./start-cloud.sh
 ```
+
+* The first 20 users to sign up for [Confluent Cloud](https://www.confluent.io/confluent-cloud/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.clients-ccloud) and use promo code ``C50INTEG`` will receive an additional $50 free usage ([details](https://www.confluent.io/confluent-cloud-promo-disclaimer/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.clients-ccloud)).
+
 
 ### Advanced usage
 
 You may explicitly set the cloud provider and region. For example:
 
 ```bash
-CLUSTER_CLOUD=aws CLUSTER_REGION=us-west-2 ./start-docker-cloud.sh
+CLUSTER_CLOUD=aws CLUSTER_REGION=us-west-2 ./start-cloud.sh
 ```
 
 Here are the variables and their default values:
@@ -59,4 +62,3 @@ Here are the variables and their default values:
 | --- | --- |
 | CLUSTER_CLOUD | aws |
 | CLUSTER_REGION | us-west-2 |
-

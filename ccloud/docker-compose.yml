@@ -24,7 +24,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: ${REPOSITORY}/cp-enterprise-kafka:${CONFLUENT_DOCKER_TAG}
+    image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: kafka
     container_name: kafka
     ports:
@@ -40,13 +40,14 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
 
       KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: $BOOTSTRAP_SERVERS
       CONFLUENT_METRICS_REPORTER_SECURITY_PROTOCOL: SASL_SSL
       CONFLUENT_METRICS_REPORTER_SASL_JAAS_CONFIG: $SASL_JAAS_CONFIG
       CONFLUENT_METRICS_REPORTER_SASL_MECHANISM: PLAIN
-      CONFLUENT_METRICS_REPORTER_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "HTTPS"
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
       CONFLUENT_METRICS_ENABLE: 'true'
 
@@ -73,7 +74,6 @@ services:
       CONTROL_CENTER_KAFKA_CLOUD_SECURITY_PROTOCOL: SASL_SSL
       CONTROL_CENTER_KAFKA_CLOUD_SASL_JAAS_CONFIG: $SASL_JAAS_CONFIG
       CONTROL_CENTER_KAFKA_CLOUD_SASL_MECHANISM: PLAIN
-      CONTROL_CENTER_KAFKA_CLOUD_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "HTTPS"
 
       CONTROL_CENTER_STREAMS_SECURITY_PROTOCOL: SASL_SSL
       CONTROL_CENTER_STREAMS_SASL_JAAS_CONFIG: $SASL_JAAS_CONFIG
@@ -92,35 +92,11 @@ services:
       CONFLUENT_METRICS_TOPIC_REPLICATION: 3
       PORT: 9021
 
-
-  # This "container" is a workaround to pre-create topics
-  kafka-create-topics:
-    image: ${REPOSITORY}/cp-kafka:${CONFLUENT_DOCKER_TAG}
-    hostname: kafka-create-topics
-    container_name: kafka-create-topics
-    depends_on:
-      - kafka
-    # We defined a dependency on "kafka", but `depends_on` will NOT wait for the
-    # dependencies to be "ready" before starting the "kafka-create-topics"
-    # container;  it waits only until the dependencies have started.  Hence we
-    # must control startup order more explicitly.
-    # See https://docs.docker.com/compose/startup-order/
-    command: "bash -c 'echo Waiting for Kafka to be ready... && \
-                       cub kafka-ready -b kafka:29092 1 20 && \
-                       kafka-topics --zookeeper zookeeper:2181 --create --topic pageviews --partitions 6 --replication-factor 1 && \
-                       sleep infinity'"
-    environment:
-      # The following settings are listed here only to satisfy the image's requirements.
-      # We override the image's `command` anyways, hence this container will not start a broker.
-      KAFKA_BROKER_ID: ignored
-      KAFKA_ZOOKEEPER_CONNECT: ignored
-
   connect-local:
     image: cnfldemos/cp-server-connect-datagen:${KAFKA_CONNECT_DATAGEN_DOCKER_TAG}
     hostname: connect-local
     container_name: connect-local
     depends_on:
-      - zookeeper
       - kafka
     ports:
       - "8083:8083"
@@ -129,7 +105,6 @@ services:
       - $PWD/delta_configs/ak-tools-ccloud.delta:/tmp/ak-tools-ccloud.delta
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092'
-      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-local
       CONNECT_PRODUCER_CLIENT_ID: "connect-local-worker-producer"
       CONNECT_REST_PORT: 8083
@@ -166,19 +141,16 @@ services:
       CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: PLAIN
 
   connect-cloud:
-    image: cnfldemos/cp-server-connect-datagen:${KAFKA_CONNECT_DATAGEN_DOCKER_TAG}
+    image: localbuild/connect-cloud:${CONFLUENT_DOCKER_TAG}-${CONNECTOR_VERSION}
     hostname: connect-cloud
     container_name: connect-cloud
     depends_on:
-      - zookeeper
       - kafka
     ports:
       - "8087:8087"
     volumes:
       - mi2:/usr/share/java/monitoring-interceptors/
-      - mi3:/usr/share/java/kafka-connect-replicator/
       - $PWD/delta_configs/ak-tools-ccloud.delta:/tmp/ak-tools-ccloud.delta
-    command: "bash -c 'cp /usr/share/java/kafka-connect-replicator/replicator-rest-extension-*.jar /etc/kafka-connect/jars/; /etc/confluent/docker/run'"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: $BOOTSTRAP_SERVERS
       CONNECT_REST_ADVERTISED_HOST_NAME: connect-cloud
@@ -207,13 +179,13 @@ services:
       CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
       CONNECT_LOG4J_LOGGERS: org.reflections=ERROR
       # CLASSPATH required due to CC-2422
-      CLASSPATH: "/etc/kafka-connect/jars/replicator-rest-extension-${CONFLUENT}.jar:/usr/share/java/monitoring-interceptors/monitoring-interceptors-${CONFLUENT}.jar"
+      CLASSPATH: "/usr/share/confluent-hub-components/confluentinc-kafka-connect-replicator/lib/replicator-rest-extension-${CONNECTOR_VERSION}.jar:/usr/share/java/monitoring-interceptors/*"
+
 
       # Connect worker
       CONNECT_SECURITY_PROTOCOL: SASL_SSL
       CONNECT_SASL_JAAS_CONFIG: $SASL_JAAS_CONFIG
       CONNECT_SASL_MECHANISM: PLAIN
-      CONNECT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "HTTPS"
 
       # Connect embedded producer
       CONNECT_PRODUCER_SECURITY_PROTOCOL: SASL_SSL
@@ -236,27 +208,5 @@ services:
       CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_JAAS_CONFIG: $SASL_JAAS_CONFIG
       CONNECT_CONSUMER_CONFLUENT_MONITORING_INTERCEPTOR_SASL_MECHANISM: PLAIN
 
-  # This container is just to transfer Replicator jars to the Connect worker
-  # It is not used as a Connect worker
-  replicator-for-jar-transfer:
-    image: ${REPOSITORY}/cp-enterprise-replicator:${CONFLUENT_DOCKER_TAG}
-    hostname: replicator
-    container_name: replicator
-    volumes:
-      - mi3:/usr/share/java/kafka-connect-replicator/
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: localhost:8882
-      CONNECT_REST_PORT: 8883
-      CONNECT_GROUP_ID: "connect-replicator"
-      CONNECT_CONFIG_STORAGE_TOPIC: "default.config"
-      CONNECT_OFFSET_STORAGE_TOPIC: "default.offsets"
-      CONNECT_STATUS_STORAGE_TOPIC: "default.status"
-      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_REST_ADVERTISED_HOST_NAME: "localhost"
-      CONNECT_LOG4J_ROOT_LOGLEVEL: DEBUG
-    command: "tail -f /dev/null"
-
 volumes:
     mi2: {}
-    mi3: {}

@@ -39,7 +39,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: srcKafka1
     container_name: srcKafka1
-    cpus: 0.3
     depends_on:
       - srcZookeeper
     ports:
@@ -52,6 +51,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: "true"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
@@ -59,7 +59,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: destKafka1
     container_name: destKafka1
-    cpus: 0.3
     depends_on:
       - destZookeeper
     ports:
@@ -72,17 +71,16 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: "true"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
   connect:
     image: ${REPOSITORY}/cp-server-connect:${CONFLUENT_DOCKER_TAG}
     container_name: connect
-    cpus: 0.2
     restart: always
     ports:
       - "8083:8083"
     depends_on:
-      - destZookeeper
       - destKafka1
     volumes:
       - mi3:/usr/share/replicator/kafka-connect-replicator/
@@ -109,10 +107,8 @@ services:
   srcSchemaregistry:
     image: ${REPOSITORY}/cp-schema-registry:${CONFLUENT_DOCKER_TAG}
     container_name: srcSchemaregistry
-    cpus: 0.4
     restart: always
     depends_on:
-      - srcZookeeper
       - srcKafka1
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "srcKafka1:10091"
@@ -126,10 +122,8 @@ services:
   destSchemaregistry:
     image: ${REPOSITORY}/cp-schema-registry:${CONFLUENT_DOCKER_TAG}
     container_name: destSchemaregistry
-    cpus: 0.4
     restart: always
     depends_on:
-      - destZookeeper
       - destKafka1
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "destKafka1:11091"
@@ -151,7 +145,6 @@ services:
     image: ${REPOSITORY}/cp-server:${CONFLUENT_DOCKER_TAG}
     hostname: kafka-client
     container_name: kafka-client
-    cpus: 0.1
     depends_on:
       - srcKafka1
       - connect
@@ -162,7 +155,7 @@ services:
                        cub kafka-ready -b srcKafka1:10091 1 60 --config /etc/kafka/kafka.properties && \
                        cub kafka-ready -b destKafka1:11091 1 60 --config /etc/kafka/kafka.properties && \
                        sleep 30 && \
-                       kafka-topics --zookeeper srcZookeeper:2181 --topic testTopic --create --replication-factor 1 --partitions 6 && \
+                       kafka-topics --bootstrap-server srcKafka1:10091 --topic testTopic --create --replication-factor 1 --partitions 6 && \
                        echo submitting test subjects && \
                        /etc/kafka/scripts/submit_source_subjects.sh && \
                        echo submitted source_subjects'"
