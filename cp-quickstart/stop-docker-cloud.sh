@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Source library 
-. ../utils/helper.sh
-
 docker-compose down -v
 
 if [ -z "$1" ]; then

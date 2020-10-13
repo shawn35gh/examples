@@ -23,23 +23,21 @@ You can use [Confluent Cloud CLI](https://docs.confluent.io/current/cloud/cli/in
 
 ### DISCLAIMER
 
-This demo is for reference purposes only and should be used to see a sample workflow using Confluent Cloud CLI
-
-If you choose to run it against your Confluent Cloud cluster, be aware that it:
-
-- creates and deletes topics, service accounts, API keys, and ACLs
-- is for demo purposes only
-- should be used only on a non-production cluster
+This example uses real resources in Confluent Cloud, and it creates and deletes topics, service accounts, API keys, and ACLs.
 
 ### Pre-requisites
 
 * Access to a Confluent Cloud cluster
-* Local install of [Confluent Cloud CLI](https://docs.confluent.io/current/cloud/cli/install.html#ccloud-install-cli?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.beginner-cloud) v1.0.0 or later
+* Local install of [Confluent Cloud CLI](https://docs.confluent.io/current/cloud/cli/install.html#ccloud-install-cli?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.beginner-cloud) v1.7.0 or later
 * Confluent Cloud user credentials saved in `~/.netrc` (save with command `ccloud login --save`)
 * Docker and Docker Compose for the local Connect worker
 * `timeout` installed on your host
 * `mvn` installed on your host
 * `jq` installed on your host
+
+### Confluent Cloud Promo Code
+
+The first 20 users to sign up for [Confluent Cloud](https://www.confluent.io/confluent-cloud/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.beginner-cloud) and use promo code ``C50INTEG`` will receive an additional $50 free usage ([details](https://www.confluent.io/confluent-cloud-promo-disclaimer/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.beginner-cloud)).
 
 ### Run demo
 
@@ -78,7 +76,6 @@ Failed to create environment demo-script-env. Please troubleshoot and run again
 
 You may need to manually delete API keys and ACLs created in a previous demo run.
 But you could consider running the following script to delete the demo's topics, Kafka cluster, and environment.
-Use this script with extreme caution and only in non-production environments.
 
 ```bash
 ./cleanup.sh

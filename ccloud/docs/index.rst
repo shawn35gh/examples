@@ -16,8 +16,8 @@ Overview
 The major components of the demo are:
 
 * Two Kafka clusters: one cluster is a self-managed cluster running locally, the other is a |ccloud| cluster.
-* |c3|: manages and monitors the deployment. Use it for topic inspection, viewing the schema, viewing and creating KSQL queries, streams monitoring, and more.
-* KSQL: Confluent Cloud KSQL running queries on input topics `users` and `pageviews` in |ccloud|.
+* |c3|: manages and monitors the deployment. Use it for topic inspection, viewing the schema, viewing and creating ksqlDB queries, streams monitoring, and more.
+* ksqlDB: Confluent Cloud ksqlDB running queries on input topics `users` and `pageviews` in |ccloud|.
 * Two Kafka Connect clusters: one cluster connects to the local self-managed cluster and one connects to the |ccloud| cluster. Both Connect worker processes themselves are running locally.
 
   * One instance of `kafka-connect-datagen`: a source connector that produces mock data to prepopulate the topic `pageviews` locally
@@ -28,6 +28,8 @@ The major components of the demo are:
 
 .. note:: This is a demo environment and has many services running on one host. Do not use this demo in production, and
           do not use Confluent CLI in production. This is meant exclusively to easily demo the |cp| and |ccloud|.
+
+.. include:: includes/ccloud-promo-code.rst
 
 =======
 Caution
@@ -43,8 +45,8 @@ Prerequisites
 
 1. The following are prerequisites for the demo:
 
-   -  An initialized `Confluent Cloud cluster <https://confluent.cloud/>`__ used for development only. Do not use a production cluster.
-   -  `Confluent Cloud CLI <https://docs.confluent.io/current/quickstart/cloud-quickstart/index.html#step-2-install-the-ccloud-cli>`__ v0.239.0 or later
+   -  An initialized `Confluent Cloud cluster <https://confluent.cloud/>`__
+   -  `Confluent Cloud CLI <https://docs.confluent.io/current/quickstart/cloud-quickstart/index.html#step-2-install-the-ccloud-cli>`__ v1.7.0 or later
    -  `Download <https://www.confluent.io/download/>`__ |cp| if using the local install (not required for Docker)
    -  jq
 
@@ -122,7 +124,7 @@ Run
       # SERVICE ACCOUNT ID: <SERVICE ACCOUNT ID>
       # KAFKA CLUSTER ID: <KAFKA CLUSTER ID>
       # SCHEMA REGISTRY CLUSTER ID: <SCHEMA REGISTRY CLUSTER ID>
-      # KSQL APP ID: <KSQL APP ID>
+      # KSQLDB APP ID: <KSQLDB APP ID>
       # ------------------------------
       ssl.endpoint.identification.algorithm=https
       security.protocol=SASL_SSL
@@ -132,8 +134,8 @@ Run
       basic.auth.credentials.source=USER_INFO
       schema.registry.basic.auth.user.info=<SR API KEY>:<SR API SECRET>
       schema.registry.url=https://<SR ENDPOINT>
-      ksql.endpoint=<KSQL ENDPOINT>
-      ksql.basic.auth.user.info=<KSQL API KEY>:<KSQL API SECRET>
+      ksql.endpoint=<KSQLDB ENDPOINT>
+      ksql.basic.auth.user.info=<KSQLDB API KEY>:<KSQLDB API SECRET>
 
       
 #. Log into the Confluent Cloud UI at http://confluent.cloud .
@@ -227,15 +229,15 @@ kafka-connect-datagen
       :alt: image
 
 
-KSQL
-----
+ksqlDB
+------
 
-#. In the demo, the Confluent Cloud KSQL queries were created using the REST API in :devx-examples:`this code|ccloud/create_ksql_app.sh` with proper credentials.
+#. In the demo, the Confluent Cloud ksqlDB queries are created from :devx-examples:`statements.sql|ccloud/statements.sql` (for ksqlDB version 0.10.0) using the REST API in :devx-examples:`this code|ccloud/create_ksqldb_app.sh` with proper credentials.
 
-   .. literalinclude:: ../create_ksql_app.sh
+   .. literalinclude:: ../create_ksqldb_app.sh
       :lines: 31-52
 
-#. From the Confluent Cloud UI, view the KSQL application flow.
+#. From the Confluent Cloud UI, view the ksqlDB application flow.
 
    .. figure:: images/ksqlDB_flow.png
       :alt: image

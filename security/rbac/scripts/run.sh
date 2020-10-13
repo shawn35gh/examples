@@ -6,33 +6,21 @@
 #
 # Demo the Role Based Access Control (RBAC) functionality with the new Confluent CLI
 #
-# Documentation accompanying this tutorial:
-#
-#   <>
-#
-# DISCLAIMER:
-#
-#   This is mostly for reference to see a workflow using Confluent CLI
-#
-#   If you choose to run it against your Kafka cluster, be aware that it:
-#      - is for demo purposes only
-#      - should be used only on a non-production cluster
-#
 # Usage:
 #
 #   ./run.sh
 #
 # Requirements:
 #
-#   - Local install of Confluent CLI (v0.96.0 or above)
+#   - Local install of Confluent CLI (v0.265.0 or above)
 #
 ################################################################################
 
 # Source library
-. ../../../utils/helper.sh
+source ../../../utils/helper.sh
 
 check_env || exit 1
-check_cli_v2 || exit 1
+validate_version_confluent_cli_v2 || exit 1
 check_jq || exit 1
 
 
@@ -43,7 +31,7 @@ check_jq || exit 1
 ./enable-rbac-schema-registry.sh
 ./enable-rbac-connect.sh
 ./enable-rbac-rest-proxy.sh
-./enable-rbac-ksql-server.sh
+./enable-rbac-ksqldb-server.sh
 ./enable-rbac-control-center.sh
 
 #./cleanup.sh

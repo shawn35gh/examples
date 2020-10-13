@@ -13,7 +13,7 @@ The script uses the Confluent Cloud CLI to dynamically do the following in Confl
 * Create a new service account
 * Create a new Kafka cluster and associated credentials
 * Enable Schema Registry and associated credentials
-* Create a new KSQL app and associated credentials
+* Create a new ksqlDB app and associated credentials
 * Create ACLs with wildcard for the service account
 * Generate a local configuration file with all above connection information, useful for other demos/automation
 
@@ -21,13 +21,16 @@ The script uses the Confluent Cloud CLI to dynamically do the following in Confl
 
 This demo is learning purposes only.
 If you choose to run it against your Confluent Cloud cluster, be aware that it creates resources and incurs charges.
-It is for demo purposes only and should be used only on a non-production cluster.
 
 ## Pre-requisites
 
 * User account on [Confluent Cloud](https://docs.confluent.io/current/cloud/index.html?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.ccloud-stacks)
-* Local install of [Confluent Cloud CLI](https://docs.confluent.io/current/cloud/cli/install.html#ccloud-install-cli?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.ccloud-stacks) v1.0.0 or later
+* Local install of [Confluent Cloud CLI](https://docs.confluent.io/current/cloud/cli/install.html#ccloud-install-cli?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.ccloud-stacks) v1.7.0 or later
 * Confluent Cloud user credentials saved in `~/.netrc` (save with command `ccloud login --save`)
+
+## Confluent Cloud Promo Code
+
+The first 20 users to sign up for [Confluent Cloud](https://www.confluent.io/confluent-cloud/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.ccloud-stacks) and use promo code ``C50INTEG`` will receive an additional $50 free usage ([details](https://www.confluent.io/confluent-cloud-promo-disclaimer/?utm_source=github&utm_medium=demo&utm_campaign=ch.examples_type.community_content.ccloud-stacks)).
 
 ## Create
 
@@ -49,7 +52,7 @@ It is written to `stack-configs/java-service-account-<SERVICE_ACCOUNT_ID>.config
 # SERVICE ACCOUNT ID: <SERVICE ACCOUNT ID>
 # KAFKA CLUSTER ID: <KAFKA CLUSTER ID>
 # SCHEMA REGISTRY CLUSTER ID: <SCHEMA REGISTRY CLUSTER ID>
-# KSQL APP ID: <KSQL APP ID>
+# KSQLDB APP ID: <KSQLDB APP ID>
 # ------------------------------
 ssl.endpoint.identification.algorithm=https
 security.protocol=SASL_SSL
@@ -59,8 +62,8 @@ sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule require
 basic.auth.credentials.source=USER_INFO
 schema.registry.basic.auth.user.info=<SR API KEY>:<SR API SECRET>
 schema.registry.url=https://<SR ENDPOINT>
-ksql.endpoint=<KSQL ENDPOINT>
-ksql.basic.auth.user.info=<KSQL API KEY>:<KSQL API SECRET>
+ksql.endpoint=<KSQLDB ENDPOINT>
+ksql.basic.auth.user.info=<KSQLDB API KEY>:<KSQLDB API SECRET>
 ```
 
 ## Advanced usage
@@ -83,7 +86,7 @@ Here are the variables and their default values:
 To destroy the stack, pass the client properties file auto-generated in the step above:
 
 ```bash
-./ccloud stack_destroy.sh stack-configs/java-service-account-<SERVICE_ACCOUNT_ID>.config
+./ccloud_stack_destroy.sh stack-configs/java-service-account-<SERVICE_ACCOUNT_ID>.config
 ```
 
 # Additional Resources

@@ -3,8 +3,10 @@
 set -eu
 
 source ../../../utils/helper.sh
+source ../../../utils/ccloud_library.sh
+
 CONFIG_FILE=$HOME/.confluent/java.config
-check_ccloud_config $CONFIG_FILE || exit
+ccloud::validate_ccloud_config $CONFIG_FILE || exit
 
 # Set topic name
 topic_name=test1

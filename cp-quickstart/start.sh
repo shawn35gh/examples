@@ -1,11 +1,12 @@
 #!/bin/bash
 
 # Source library
-. ../utils/helper.sh
+source ../utils/helper.sh
+source ../utils/ccloud_library.sh
 
 check_env || exit 1
 check_running_cp ${CONFLUENT} || exit
-check_cli_v2 || exit
+validate_version_confluent_cli_v2 || exit
 
 ./stop.sh
 

@@ -3,10 +3,11 @@
 CONFIG_FILE=$HOME/.confluent/java.config
 
 source ../../../utils/helper.sh
+source ../../../utils/ccloud_library.sh
 
 check_env || exit
-check_cli_v2 || exit
-check_ccloud_config $CONFIG_FILE || exit
+validate_version_confluent_cli_v2 || exit
+ccloud::validate_ccloud_config $CONFIG_FILE || exit
 
 set -eu
 

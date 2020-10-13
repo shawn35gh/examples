@@ -7,18 +7,16 @@
 
 This page describes a few resources to help you build and validate your solutions on |ccloud|.
 
+.. include:: includes/ccloud-promo-code.rst
 
 =======
 Caution
 =======
 
-All demos that connect to |ccloud| use real |ccloud| resources.
-To avoid unexpected charges, carefully evaluate the cost of resources before launching any demo and ensure all resources are destroyed after you are done running it.
+All the following demos and examples use real |ccloud| resources.
+They create |ccloud| environments, clusters, topics, ACLs, service accounts, ksqlDB applications, and potentially other |ccloud| resources that are billable.
+To avoid unexpected charges, carefully evaluate the cost of resources before launching any demo and manually verify that all |ccloud| resources are destroyed after you are done.
 
-These demos are meant for development environments only.
-Do not run any demo against your production |ccloud| cluster.
-These scripts create environments, clusters, topics, ACLs, service accounts, applications, and other resources.
-The scripts provide functions to delete created resources; however, you should verify the deletion of all demo resources manually.
 
 =====
 Demos
@@ -43,7 +41,7 @@ The script uses the |ccloud| CLI to dynamically do the following in |ccloud|:
 -  Create a new service account.
 -  Create a new Kafka cluster and associated credentials.
 -  Enable |sr-ccloud| and associated credentials.
--  Create a new KSQL app and associated credentials.
+-  Create a new ksqlDB app and associated credentials.
 -  Create ACLs with wildcard for the service account.
 -  Generate a local configuration file with all above connection information, useful for other demos/automation.
 
@@ -79,7 +77,7 @@ Cloud ETL
 ---------
 
 The :ref:`cloud ETL demo <cloud-etl>` showcases a cloud ETL solution leveraging all fully-managed services on |ccloud|.
-Using |ccloud| CLI, the demo creates a source connector that reads data from an AWS Kinesis stream into |ccloud|, then a |ccloud| KSQL application processes that data, and then a sink connector writes the output data into cloud storage in the provider of your choice (GCP GCS, AWS S3, or Azure Blob).
+Using |ccloud| CLI, the demo creates a source connector that reads data from an AWS Kinesis stream into |ccloud|, then a |ccloud| ksqlDB application processes that data, and then a sink connector writes the output data into cloud storage in the provider of your choice (GCP GCS, AWS S3, or Azure Blob).
 
 .. figure:: ../../cloud-etl/docs/images/topology.png
 
@@ -116,21 +114,11 @@ The script uses the |ccloud| CLI to dynamically do the following in |ccloud|:
 -  Create a new service account.
 -  Create a new Kafka cluster and associated credentials.
 -  Enable |sr-ccloud| and associated credentials.
--  Create a new KSQL app and associated credentials.
+-  Create a new ksqlDB app and associated credentials.
 -  Create ACLs with wildcard for the service account.
 -  Generate a local configuration file with all above connection information, useful for other demos/automation.
 
 .. figure:: images/cloud-stack.png
-
-
-Self Managed Components to |ccloud| 
------------------------------------
-
-This :devx-cp-all-in-one:`Docker-based environment|cp-all-in-one-cloud` can be used with |ccloud|.
-The ``docker-compose.yml`` launches all services in |cp| (except for the Kafka brokers), runs them in containers on your local host, and automatically configures them to connect to |ccloud|.
-Using this as a foundation, you can then add any connectors or applications.
-
-.. figure:: images/cp-all-in-one-cloud.png
 
 
 Auto-generate Configurations to connect to |ccloud|
@@ -178,8 +166,65 @@ Use these per-component configurations for |cp| components and clients connectin
   * ENV file
 
 
+Self Managed Components to |ccloud|
+-----------------------------------
+
+This :devx-cp-all-in-one:`Docker-based environment|cp-all-in-one-cloud` can be used with |ccloud|.
+The ``docker-compose.yml`` launches all services in |cp| (except for the Kafka brokers), runs them in containers on localhost, and automatically configures them to connect to |ccloud|.
+Using this as a foundation, you can then add any connectors or applications.
+
+.. figure:: images/cp-all-in-one-cloud.png
+
+
+Put It All Together
+-------------------
+
+You can chain these utilities to build your own hybrid demos that span on-prem and |ccloud|, where some self-managed components run on-prem and fully-managed services run in |ccloud|.
+
+For example, you may want an easy way to run a connector not yet available in |ccloud|.
+In this case, you can run a self-managed connect worker and connector on prem and connect it to your |ccloud| cluster.
+Or perhaps you want to build a |ak| demo in |ccloud| and run the |crest| client or |c3| against it.
+
+You can build any demo with a mix of fully-managed services in |ccloud| and self-managed components on localhost, in a few easy steps.
+
+#. Create a :devx-examples:`ccloud stack|ccloud/ccloud-stack/README.md` of fully managed services in |ccloud|. One of the outputs is a local configuration file with key-value pairs of the required connection values to |ccloud|. (If you already have provisioned your |ccloud| resources, you can skip this step).
+
+   .. sourcecode:: bash
+
+      ./ccloud_stack_create.sh
+
+#. Run the :ref:`configuration generation script <auto-generate-configs>`, passing in that local configuration file (created in previous step) as input. This script generates delta configuration files for all |cp| components and clients, including information for bootstrap servers, endpoints, and credentials required to connect to |ccloud|.
+
+   .. sourcecode:: bash
+
+      # stack-configs/java-service-account-<SERVICE_ACCOUNT_ID>.config is generated by step above
+      ./ccloud-generate-cp-configs.sh stack-configs/java-service-account-<SERVICE_ACCOUNT_ID>.config
+
+   One of the generated delta configuration files from this step is for environment variables, and it resembles :devx-examples:`this example|ccloud/template_delta_configs/env.delta`, with credentials filled in.
+
+   .. literalinclude:: ../template_delta_configs/env.delta
+
+#. Source the above delta env file to export variables into the shell environment.
+
+   .. sourcecode:: bash
+
+      # delta_configs/env.delta is generated by step above
+      source delta_configs/env.delta
+
+#. Run the desired |cp| services locally using :devx-cp-all-in-one:`this Docker-based example|cp-all-in-one-cloud`. The Docker Compose file launches |cp| services on your localhost and uses environment variable substitution to populate the parameters with the connection values to your |ccloud| so that they can connect to |ccloud|. If you want to run a single service, you can bring up just that service.
+ 
+   .. sourcecode:: bash
+
+      docker-compose up -d <service>
+
+   In the case of running a self-managed connector locally that connects to |ccloud|, first add your desired connector to the base |kconnect-long| Docker image as described in :ref:`connect_adding_connectors_to_images`, and then substitute that Docker image in your Docker Compose file.
+
+#. Refer to the :devx-examples:`library of bash functions|utils/ccloud_library.sh` for examples on how to interact with |ccloud| via the |ccloud| CLI.
+
+
 ====================
 Additional Resources
 ====================
 
 -  For a practical guide to configuring, monitoring, and optimizing your |ak| client applications, see the `Best Practices for Developing Kafka Applications on Confluent Cloud <https://assets.confluent.io/m/14397e757459a58d/original/20200205-WP-Best_Practices_for_Developing_Apache_Kafka_Applications_on_Confluent_Cloud.pdf>`__ whitepaper.
+-  Learn how to use |crep-full| to copy Kafka data to |ccloud|, in different configurations that allow |kconnect-long| to be backed to |ccloud| or to your origin Kafka cluster. See :ref:`replicator-to-cloud-configurations` for more information.

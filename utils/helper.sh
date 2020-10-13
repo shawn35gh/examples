@@ -3,9 +3,8 @@
 ################################################################
 # Source Confluent Platform versions
 ################################################################
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-. "$DIR/config.env"
-. "$DIR/helper_cloud.sh"
+DIR_HELPER="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+source "${DIR_HELPER}/config.env"
 
 
 ################################################################
@@ -31,6 +30,24 @@ function check_env() {
   return 0
 }
 
+function validate_version_confluent_cli_v2() {
+
+  if [[ -z $(confluent version | grep "Go") ]]; then
+    echo "This demo requires the new Confluent CLI. Please update your version and try again."
+    exit 1
+  fi
+
+  return 0
+}
+
+function check_sqlite3() {
+  if [[ $(type sqlite3 2>&1) =~ "not found" ]]; then
+    echo "'sqlite3' is not found. Install sqlite3 and try again."
+    return 1
+  fi
+
+  return 0
+}
 function check_python() {
   if [[ $(type python 2>&1) =~ "not found" ]]; then
     echo "'python' is not found. Install python and try again."
@@ -258,25 +275,6 @@ function prep_sqltable_locations() {
   return 0
 }
 
-function prep_sqltable_customers() {
-  TABLE="customers"
-  TABLE_PATH=/usr/local/lib/table.$TABLE
-  cp ../utils/table.$TABLE $TABLE_PATH
-
-  DB=/usr/local/lib/microservices.db
-  echo "DROP TABLE IF EXISTS $TABLE;" | sqlite3 $DB
-  echo "CREATE TABLE $TABLE(id INTEGER KEY NOT NULL, firstName VARCHAR(255), lastName VARCHAR(255), email VARCHAR(255), address VARCHAR(255), level VARCHAR(255));" | sqlite3 $DB
-  echo ".import $TABLE_PATH $TABLE" | sqlite3 $DB
-  #echo "pragma table_info($TABLE);" | sqlite3 $DB
-  #echo "select * from $TABLE;" | sqlite3 $DB
-
-  # View contents of file
-  #echo -e "\n======= Contents of $TABLE_PATH ======="
-  #cat $TABLE_PATH
-
-  return 0
-}
-
 function error_not_compatible_confluent_cli() {
   adoc_file=$1
 
@@ -326,10 +324,10 @@ function get_cluster_id_connect () {
   return 0
 }
 
-function get_service_id_ksql () {
-  KSQL_SERVICE_ID=$(confluent cluster describe --url http://localhost:8088 | grep ksql-cluster | awk '{print $3;}')
-  if [[ -z "$KSQL_SERVICE_ID" ]]; then
-    echo "Failed to get KSQL service ID. Please troubleshoot and run again"
+function get_service_id_ksqldb () {
+  KSQLDB_SERVICE_ID=$(confluent cluster describe --url http://localhost:8088 | grep ksql-cluster | awk '{print $3;}')
+  if [[ -z "$KSQLDB_SERVICE_ID" ]]; then
+    echo "Failed to get ksqlDB service ID. Please troubleshoot and run again"
     exit 1
   fi
   return 0
@@ -440,14 +438,48 @@ function props_to_env() {
   done
 }
 
-PRETTY_PASS="\e[32m✔ \033\e[0m"
+PRETTY_PASS="\e[32m✔ \e[0m"
 function print_pass() {
-  printf "${PRETTY_PASS}${1}\n"
+  printf "${PRETTY_PASS}%s\n" "${1}"
 }
-
-PRETTY_ERROR="\e[31m✘ \033\e[0m"
+PRETTY_ERROR="\e[31m✘ \e[0m"
 function print_error() {
-  printf "${PRETTY_ERROR}${1}\n"
+  printf "${PRETTY_ERROR}%s\n" "${1}"
+}
+PRETTY_CODE="\e[1;100;37m"
+function print_code() {
+	printf "${PRETTY_CODE}%s\e[0m\n" "${1}"
+}
+function print_process_start() {
+	printf "⌛ %s\n" "${1}"
+}
+function print_code_pass() {
+  local MESSAGE=""
+	local CODE=""
+  OPTIND=1
+  while getopts ":c:m:" opt; do
+    case ${opt} in
+			c ) CODE=${OPTARG};;
+      m ) MESSAGE=${OPTARG};;
+		esac
+	done
+  shift $((OPTIND-1))
+	printf "${PRETTY_PASS}${PRETTY_CODE}%s\e[0m\n" "${CODE}"
+	[[ -z "$MESSAGE" ]] || printf "\t$MESSAGE\n"			
+}
+function print_code_error() {
+  local MESSAGE=""
+	local CODE=""
+  OPTIND=1
+  while getopts ":c:m:" opt; do
+    case ${opt} in
+			c ) CODE=${OPTARG};;
+      m ) MESSAGE=${OPTARG};;
+		esac
+	done
+  shift $((OPTIND-1))
+	printf "${PRETTY_ERROR}${PRETTY_CODE}%s\e[0m\n" "${CODE}"
+	[[ -z "$MESSAGE" ]] || printf "\t$MESSAGE\n"			
 }
 
 function exit_with_error()
@@ -468,6 +500,7 @@ function exit_with_error()
     esac
   done
   shift $((OPTIND-1))
-  print_error "error ${CODE} occurred in ${NAME} at line $LINE\n\t${MESSAGE}\n"
+  print_error "error ${CODE} occurred in ${NAME} at line $LINE"
+	printf "\t${MESSAGE}\n"
   exit $CODE
 }

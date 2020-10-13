@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Source library
-. ../../../utils/helper.sh
+source ../../../utils/helper.sh
+source ../../../utils/ccloud_library.sh
 
 CONFIG_FILE=$HOME/.confluent/java.config
-check_ccloud_config $CONFIG_FILE || exit
+ccloud::validate_ccloud_config $CONFIG_FILE || exit
 
 ./stop-docker.sh
 
