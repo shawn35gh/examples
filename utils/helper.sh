@@ -30,10 +30,28 @@ function check_env() {
   return 0
 }
 
+function get_version_confluent_cli() {
+  confluent version | grep "^Version:" | cut -d':' -f2 | cut -d'v' -f2
+}
+
+function version_gt() {
+  test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1";
+}
+
 function validate_version_confluent_cli_v2() {
 
   if [[ -z $(confluent version | grep "Go") ]]; then
     echo "This demo requires the new Confluent CLI. Please update your version and try again."
+    exit 1
+  fi
+
+  MAX_CONFLUENT_CLI_VER=${1:-"1.7.0"}
+  CONFLUENT_CLI_VER=$(get_version_confluent_cli)
+
+  if version_gt $CONFLUENT_CLI_VER $MAX_CONFLUENT_CLI_VER ; then
+    echo "ERROR: Confluent Platform ${CONFLUENT} is compatible with Confluent CLI versions 0.265.0 through ${MAX_CONFLUENT_CLI_VER}, but current reported Confluent CLI version is ${CONFLUENT_CLI_VER}"
+    echo "Reference: https://docs.confluent.io/current/installation/versions-interoperability.html#confluent-cli"
+    echo -e "Install the required Confluent CLI version and try again."
     exit 1
   fi
 
@@ -118,7 +136,7 @@ function check_running_cp() {
 
   expected_version=$1
 
-  actual_version=$( confluent local version 2>/dev/null | awk -F':' '{print $2;}' | awk '$1 > 0 { print $1}' )
+  actual_version=$( confluent local version 2>&1 | awk -F':' '{print $2;}' | awk '$1 > 0 { print $1}' )
   if [[ $expected_version != $actual_version ]]; then
     printf "\nThis script expects Confluent Platform version $expected_version but the running version is $actual_version.\nTo proceed please either: change the examples repo branch to $actual_version or update the running Confluent Platform to version $expected_version.\n"
     exit 1
@@ -130,7 +148,7 @@ function check_running_cp() {
 function check_cp() {
   require_cp_or_exit
 
-  type=$( confluent local version 2>/dev/null | tail -1 | awk -F: '{print $1;}' | tr '[:lower:]' '[:upper:]')
+  type=$( confluent local version 2>&1 | tail -1 | awk -F: '{print $1;}' | tr '[:lower:]' '[:upper:]')
   case $type in
     *PLATFORM*)
       return 0 ;; 
@@ -290,7 +308,7 @@ function error_not_compatible_confluent_cli() {
 function get_and_compile_kafka_streams_examples() {
 
   [[ -d "kafka-streams-examples" ]] || git clone https://github.com/confluentinc/kafka-streams-examples.git
-  (cd kafka-streams-examples && git fetch && git checkout ${CONFLUENT_RELEASE_TAG_OR_BRANCH} && git pull && mvn package -DskipTests) || {
+  (cd kafka-streams-examples && git fetch && git checkout ${CONFLUENT_RELEASE_TAG_OR_BRANCH} && git pull && echo "Building kafka-streams-examples $CONFLUENT_RELEASE_TAG_OR_BRANCH" && mvn package -DskipTests) || {
     echo "ERROR: There seems to be a BUILD FAILURE error with confluentinc/kafka-streams-examples. Please troubleshoot and try again."
     exit 1
   }
